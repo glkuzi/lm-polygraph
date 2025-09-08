@@ -12,6 +12,10 @@ from builders.truthfulqa import CONFIG as truthfulqa_config
 from builders.samsum import CONFIG as samsum_config
 from builders.xsum import CONFIG as xsum_config
 from builders.gsm8k import CONFIG as gsm8k_config
+from builders.nq import CONFIG as nq_config
+from builders.gpqa import CONFIG as gpqa_config
+from builders.sciq import CONFIG as sciq_config
+
 
 DATASET_CONFIG = (
     base_config
@@ -26,8 +30,20 @@ DATASET_CONFIG = (
     | samsum_config
     | xsum_config
     | gsm8k_config
+    | nq_config
+    | gpqa_config
+    | sciq_config
 )
 
+
+DATASETS_WITH_SUBSET = [
+    "nq_instruct",
+    "babi_qa",
+    "sciq",
+    "coqa_instruct",
+    "triviaqa_instruct",
+    "truthfulqa_instruct",
+]
 
 def build_dataset(dataset_name):
     config = DATASET_CONFIG[dataset_name]
@@ -41,7 +57,10 @@ def build_dataset(dataset_name):
         )
 
     def prepare_dataset(split):
-        x, y = config["prepare_func"](dataset=dataset[config[f"{split}_split"]])
+        if any([dataset_name in config["dataset"] for dataset_name in DATASETS_WITH_SUBSET]):
+            x, y = config["prepare_func"](dataset=dataset[config[f"{split}_split"]], split=split, size=config[f"{split}_size"])
+        else:
+            x, y = config["prepare_func"](dataset=dataset[config[f"{split}_split"]])
         result_dataset = datasets.Dataset.from_dict({"input": x, "output": y})
         return result_dataset
 

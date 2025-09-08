@@ -54,6 +54,63 @@ def prepare_coqa(
     return x, y
 
 
+def prepare_coqa_instruct(
+    dataset,
+    split,
+    size,
+    input_column,
+    output_column,
+    description,
+    prompt,
+    few_shot_prompt
+):
+    def doc_to_text(doc, prompt, i=0):
+        # Given a passage p, the conversation history {q1, a1, . . . qi−1, ai−1}
+        # and a question qi, the task is to predict the answer ai
+        doc_text = ""
+        for q, a in zip(doc["questions"][:i], doc["answers"]["input_text"][:i]):
+            doc_text += prompt.format(question=q, answer=a)
+        return doc_text
+
+    if size != -1 and size < len(dataset):
+        dataset = dataset.select(range(size))
+
+    x, y = [], []
+    for inst in dataset:
+        formatted_description = description.format(story=inst["story"])
+        for j, (question, answer) in enumerate(
+            zip(inst[input_column], inst[output_column]["input_text"])
+        ):
+            if few_shot_prompt:
+                few_shot_section = doc_to_text(inst, few_shot_prompt, j)
+                if few_shot_section:
+                    few_shot_section = (
+                        "\n\nHere are a few examples of questions and answers:"
+                        + few_shot_section
+                        + "\n\nNow answer the following question."
+                    )
+                formatted_prompt = (
+                    formatted_description
+                    + few_shot_section
+                    + prompt.format(
+                        question=question,
+                        answer="",
+                    )
+                )
+            else:
+                formatted_prompt = (
+                    formatted_description
+                    + doc_to_text(inst, prompt, j) 
+                    + prompt.format(
+                        question=question,
+                        answer="",
+                    )
+                )
+            x.append(formatted_prompt)
+            y.append(answer)
+    return x, y
+
+
 def generate_coqa_instruct_config(
     subset,
     description,
@@ -139,4 +196,24 @@ CONFIG = {
         end_answer="Answer: {answer}",
         few_shot_prompt_end="Now answer the following question.",
     ),
+    "coqa_instruct": {
+        "name": "coqa",
+        "train_split": "train",
+        "test_split": "validation",
+        "train_size": 80,
+        "test_size": 80,
+        "prepare_func": partial(
+            prepare_coqa_instruct,
+            input_column="questions",
+            output_column="answers",
+            description="Here's a short story:\n\n{story} (End of story)\n\nAnswer the following question as briefly as possible.",
+            prompt="\n\nQuestion: {question}\nAnswer:{answer}",
+            few_shot_prompt="\n\nQuestion: {question}\nAnswer:{answer}",
+        ),
+        "dataset": "coqa_instruct",
+    },
 }
+
+
+
+

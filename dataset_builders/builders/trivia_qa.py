@@ -70,6 +70,61 @@ def prepare_trivia_qa(
     return x, y
 
 
+def prepare_trivia_qa_instruct(
+    dataset,
+    split,
+    size,
+    input_column,
+    output_column,
+    prompt,
+    n_shot,
+    few_shot_dataset_func,
+    description,
+    few_shot_prompt,
+):
+    import numpy as np
+
+    np.random.seed(SEED)
+
+    few_shot_dataset = few_shot_dataset_func()
+    x, y = [], []
+    formatted_few_shot_prompt = description
+    if n_shot > 0:
+        few_shot_ids = np.random.choice(
+            len(few_shot_dataset), n_shot, replace=False
+        )
+        few_shot_data = few_shot_dataset.select(few_shot_ids)
+        for inst in few_shot_data:
+            if few_shot_prompt:
+                formatted_few_shot_prompt += (
+                    few_shot_prompt.format(
+                        question=inst["question"].strip(),
+                        answer=inst["answer"]["normalized_value"],
+                    )
+                    + "\n"
+                )
+            else:
+                formatted_few_shot_prompt += (
+                    prompt.format(
+                        question=inst["question"].strip(),
+                        answer=inst["answer"]["normalized_value"],
+                    )
+                    + "\n"
+                )
+    if size != -1 and size < len(dataset):
+        dataset = dataset.select(range(size))
+    for inst in dataset:
+        x.append(
+            formatted_few_shot_prompt
+            + prompt.format(
+                question=inst["question"],
+                answer="",
+            )
+        )
+        y.append([alias for alias in inst["answer"]["aliases"]])
+    return x, y
+
+
 def generate_triviaqa_instruct_config(
     description,
     few_shot_prompt,
@@ -165,4 +220,27 @@ CONFIG = {
         end_answer="Answer: ",
         few_shot_prompt_end="Now answer the following question:",
     ),
+    "triviaqa_instruct": {
+        "name": ["trivia_qa", "rc.nocontext"],
+        "train_split": "train",
+        "test_split": "validation",
+        "train_size": 1000,
+        "test_size": 1000,
+        "prepare_func": partial(
+            prepare_trivia_qa_instruct,
+            input_column="question",
+            output_column="answer",
+            few_shot_dataset_func=partial(
+                datasets.load_dataset,
+                path="trivia_qa",
+                name="rc.nocontext",
+                split="train",
+            ),
+            n_shot=5,
+            description="Answer the following question as briefly as possible.\n\nHere are a few examples of questions and answers:\n\n",
+            few_shot_prompt="Question: {question}\nAnswer:{answer}",
+            prompt="Now answer the following question.\n\nQuestion: {question}\nAnswer:{answer}",
+        ),
+        "dataset": "triviaqa_instruct",
+    },
 }
