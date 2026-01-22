@@ -4,6 +4,7 @@ import numpy as np
 
 from sklearn.model_selection import train_test_split
 from datasets import load_dataset, Dataset as hf_dataset
+from datasets import DatasetDict as hf_dataset_dict
 
 from typing import Iterable, Tuple, List, Union, Optional
 
@@ -142,7 +143,11 @@ class Dataset:
         load_from_disk = kwargs.pop("load_from_disk", False)
         if load_from_disk:
             dataset_name = path
-            dataset = hf_dataset.load_from_disk(path)
+            if ":" in dataset_name:
+                dataset_path, split = dataset_name.split(':')
+                dataset = hf_dataset_dict.load_from_disk(dataset_path)[split]
+            else:
+                dataset = hf_dataset.load_from_disk(path)
         elif isinstance(path, str):
             dataset_name = path
             dataset = load_dataset(path, split=split, **kwargs)

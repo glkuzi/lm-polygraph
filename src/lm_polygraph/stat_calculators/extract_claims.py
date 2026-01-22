@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from .stat_calculator import StatCalculator
 from lm_polygraph.utils.openai_chat import OpenAIChat
+from lm_polygraph.utils.openai_mock import OpenAIMock
 from lm_polygraph.utils.model import WhiteboxModel
 from .claim_level_prompts import CLAIM_EXTRACTION_PROMPTS, MATCHING_PROMPTS
 
@@ -146,13 +147,16 @@ class ClaimsExtractor(StatCalculator):
         tokenizer,
     ) -> Tuple[List[str], List[List[int]], List[int]]:
         sentences = []
-        for s in re.split(f"[{self.sent_separators}]", text):
-            if len(s) > 0:
-                sentences.append(s)
-        if len(text) > 0 and text[-1] not in self.sent_separators:
-            # Remove last unfinished sentence, because extracting claims
-            # from unfinished sentence may lead to hallucinated claims.
-            sentences = sentences[:-1]
+        if self.sent_separators == "":
+            sentences = [text]
+        else:
+            for s in re.split(f"[{self.sent_separators}]", text):
+                if len(s) > 0:
+                    sentences.append(s)
+            if len(text) > 0 and text[-1] not in self.sent_separators:
+                # Remove last unfinished sentence, because extracting claims
+                # from unfinished sentence may lead to hallucinated claims.
+                sentences = sentences[:-1]
 
         sent_start_token_idx, sent_end_token_idx = 0, 0
         sent_start_idx, sent_end_idx = 0, 0
@@ -189,6 +193,15 @@ class ClaimsExtractor(StatCalculator):
         extracted_claims = self.openai_chat.ask(
             self.extraction_prompts[self.language].format(sent=sent)
         )
+        aligned_token_ids = [idx for idx, _ in enumerate(sent_tokens)]
+        if isinstance(self.openai_chat, OpenAIMock):
+            return [
+                    Claim(
+                        claim_text=sent,
+                        sentence=sent,
+                        aligned_token_ids=aligned_token_ids,
+                    )
+            ]
         claims = []
         for claim_text in extracted_claims.split("\n"):
             # Bad claim_text example:
