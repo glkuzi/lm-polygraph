@@ -59,11 +59,13 @@ def calcu_idf(
             document_frequency[token] += 1
 
     total_documents = len(data)
+    # in gemma-3 models len(tokenizer.vocab) != tokenizer.vocab_size
+    vocab_size = len(tokenizer.vocab) if "gemma-3" not in tokenizer.name_or_path else tokenizer.vocab_size
     pickle.dump(
         np.array(
             [
                 math.log(total_documents / (document_frequency[i] + 1))
-                for i in range(len(tokenizer.vocab))
+                for i in range(vocab_size)
             ]
         ),
         open(path, "wb"),

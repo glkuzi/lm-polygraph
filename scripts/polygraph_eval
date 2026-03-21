@@ -266,6 +266,7 @@ def get_generation_metrics(args):
                 output_ignore_regex=getattr(args, "output_ignore_regex", None),
                 normalize=getattr(args, "normalize", False),
             ),
+            InAccuracyMetric(),
         ]
         if args.task == "ats":
             result += [AlignScore(target_is_claims=False, source_ignore_regex=ignore_regex, source_as_target=True)]
