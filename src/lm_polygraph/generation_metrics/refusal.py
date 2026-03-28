@@ -10,30 +10,24 @@ from .utils import is_refusal, get_tokens, normalize_text
 log = logging.getLogger("lm_polygraph")
 
 
-class InAccuracyMetric(GenerationMetric):
+class RefusalMetric(GenerationMetric):
     """
-    Calculates accuracy between model-generated texts and ground-truth.
-    Two texts are considered equal if model-generated string in ground-truth.
-    Basically, it's a simplified and relaxed accuracy metric.
+    Calculates refusal accuracy between model-generated texts and ground-truth.
     """
 
     def __init__(
         self,
-        skips_refusals,
     ):
         super().__init__(["greedy_texts"], "sequence")
         self.normalize = True
-        self.skips_refusals = skips_refusals
-
 
     def __str__(self):
-        return f"InAccuracy_Refuse_{self.skips_refusals}"
+        return f"Refusal"
 
     def _score_single(self, output: str, target: str) -> int:
-        if self.skips_refusals:
-            if is_refusal(output):
-                return float("nan")
-        if self._normalize_text(target) in self._normalize_text(output):
+        if normalize_text(target) != "unknown":
+            return float("nan")
+        if is_refusal(output):
             return 1
         return 0
 
@@ -48,7 +42,7 @@ class InAccuracyMetric(GenerationMetric):
         target_texts: List[str],
     ) -> np.ndarray:
         """
-        Calculates accuracy between stats['greedy_texts'] and target_texts.
+        Calculates refusal accuracy between stats['greedy_texts'] and target_texts.
 
         Parameters:
             stats (Dict[str, np.ndarray]): input statistics, which for multiple samples includes:

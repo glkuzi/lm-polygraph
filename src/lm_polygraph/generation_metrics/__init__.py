@@ -11,3 +11,5 @@ from .sbert import SbertMetric
 from .aggregated_metric import AggregatedMetric
 from .preprocess_output_target import PreprocessOutputTarget
 from .in_accuracy import InAccuracyMetric
+from .refusal import RefusalMetric
+from .number_match import NumberMatch
