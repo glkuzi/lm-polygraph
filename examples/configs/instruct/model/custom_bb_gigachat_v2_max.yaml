@@ -1,0 +1,6 @@
+defaults:
+  - default
+
+provider: custom
+path: Sber/GigaChat-Max-V2
+type: Blackbox

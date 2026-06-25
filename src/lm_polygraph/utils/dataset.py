@@ -221,6 +221,21 @@ class Dataset:
                 if len(inst[x_column]) <= 1024:
                     x.append(inst[x_column])
                     y.append(inst[y_column])
+        elif ("sciq" in dataset_name.lower()) and len(prompt):
+            x, y = [], []
+            for inst in dataset:
+                if len(description) == 0:
+                    formatted_description = ""
+                else:
+                    formatted_description = description.format(context=inst["support"])
+                x.append(formatted_description + prompt.format(question=inst[x_column]))
+                y.append(inst[y_column])
+        elif ("truthful_qa" in dataset_name.lower()) and len(prompt):
+            x, y = [], []
+            for inst in dataset:
+                formatted_description = description
+                x.append(formatted_description + prompt.format(question=inst[x_column]))
+                y.append(inst[y_column])
         else:
             x = dataset[x_column]
             if y_column is not None:

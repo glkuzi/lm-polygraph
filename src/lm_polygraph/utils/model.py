@@ -3,6 +3,8 @@ import openai
 import time
 import logging
 import json
+import os
+import httpx
 
 from dataclasses import asdict
 from typing import List, Dict, Optional, Union
@@ -102,6 +104,8 @@ class BlackboxModel(Model):
         hf_api_token: str = None,
         generation_parameters: GenerationParameters = GenerationParameters(),
         supports_logprobs: bool = False,
+        api_url: str = None,
+        enable_thinking: bool = False,
     ):
         """
         Parameters:
@@ -111,14 +115,23 @@ class BlackboxModel(Model):
             hf_api_token (Optional[str]): Huggingface API token if the blackbox model comes from HF. Default: None.
             generation_parameters (GenerationParameters): parameters to use in model generation. Default: default parameters.
             supports_logprobs (bool): Whether the model supports returning log probabilities. Default: False.
+            api_url (Optional[str]): API URL for custom inference API. Default: None.
         """
         super().__init__(model_path, "Blackbox")
         self.generation_parameters = generation_parameters
         self.openai_api_key = openai_api_key
         self.supports_logprobs = supports_logprobs
+        self.enable_thinking = enable_thinking
 
-        if openai_api_key is not None:
-            self.openai_api = openai.OpenAI(api_key=openai_api_key)
+        proxy_url = os.environ.get("HTTPS_PROXY", None)
+        if proxy_url is not None:
+            self.proxy = httpx.Client(proxy=proxy_url)
+        else:
+            self.proxy = None
+        if api_url is not None and openai_api_key is not None:
+            self.openai_api = openai.OpenAI(base_url=api_url, api_key=openai_api_key, http_client=self.proxy)
+        elif api_url is None and openai_api_key is not None:
+            self.openai_api = openai.OpenAI(api_key=openai_api_key, http_client=self.proxy)
 
         self.hf_api_token = hf_api_token
 
@@ -206,6 +219,30 @@ class BlackboxModel(Model):
             generation_parameters=generation_parameters,
         )
 
+    @staticmethod
+    def from_custom(
+        openai_api_key: str, api_url: str, model_path: str, supports_logprobs: bool = False, **kwargs
+    ):
+        """
+        Initializes a blackbox model from OpenAI API.
+
+        Parameters:
+            openai_api_key (Optional[str]): OpenAI API key. Default: None.
+            api_url (Optional[str]): API URL for custom inference API. Default: None.
+            model_path (Optional[str]): model name in OpenAI.
+            supports_logprobs (bool): Whether the model supports returning log probabilities. Default: False.
+        """
+        generation_parameters = kwargs.pop(
+            "generation_parameters", GenerationParameters()
+        )
+        return BlackboxModel(
+            api_url=api_url,
+            openai_api_key=openai_api_key,
+            model_path=model_path,
+            supports_logprobs=supports_logprobs,
+            generation_parameters=generation_parameters,
+        )
+
     def generate_texts(self, input_texts: List[str], **args) -> List[str]:
         """
         Generates a list of model answers using input texts batch.
@@ -251,6 +288,11 @@ class BlackboxModel(Model):
                 # OpenAI supports returning top logprobs, default to 5
                 logprobs_args["top_logprobs"] = args.pop("top_logprobs", 5)
 
+            if not(self.enable_thinking) and self.model_path in ["Qwen/Qwen3.5-27B"]:
+                args["extra_body"] = {"chat_template_kwargs": {"enable_thinking": False},}
+            if not(self.enable_thinking) and "deepseek" in self.model_path:
+                args["extra_body"] = {"thinking": {"type": "disabled"}}
+
             for prompt in input_texts:
                 if isinstance(prompt, str):
                     # If prompt is a string, create a single message with "user" role
@@ -268,12 +310,29 @@ class BlackboxModel(Model):
                 retries = 0
                 while True:
                     try:
-                        response = self.openai_api.chat.completions.create(
-                            model=self.model_path,
-                            messages=messages,
-                            **args,
-                            **logprobs_args,
-                        )
+                        if "deepseek" in self.model_path and args.get("n", 1) != 1:
+                            # as deepseek doesn't support "n" in arguments, generate in loop
+                            responses = []
+                            #print(args)
+                            gen_n = args["n"]
+                            del args["n"]
+                            for gen_idx in range(gen_n):
+                                response = self.openai_api.chat.completions.create(
+                                    model=self.model_path,
+                                    messages=messages,
+                                    **args,
+                                    **logprobs_args,
+                                )
+                                #print(response)
+                                responses.append(response)
+                            args["n"] = gen_n
+                        else:
+                            response = self.openai_api.chat.completions.create(
+                                model=self.model_path,
+                                messages=messages,
+                                **args,
+                                **logprobs_args,
+                            )
                         break
                     except Exception as e:
                         if retries > 4:
@@ -295,7 +354,12 @@ class BlackboxModel(Model):
                             ]
                             self.tokens.append(tokens)
                 else:
-                    texts.append([resp.message.content for resp in response.choices])
+                    if "deepseek" in self.model_path:
+                        #for response in responses:
+                        #    print(response)
+                        texts.append([response.choices[0].message.content for response in responses])
+                    else:
+                        texts.append([resp.message.content for resp in response.choices])
                     # For multiple returns, we don't collect logprobs for now
 
                 # Store the last response for later use

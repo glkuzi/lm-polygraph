@@ -1,0 +1,6 @@
+defaults:
+  - default
+
+provider: custom
+path: Meta-llama/Llama-3-70B-Instruct
+type: Blackbox

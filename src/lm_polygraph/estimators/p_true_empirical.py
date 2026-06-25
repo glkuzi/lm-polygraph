@@ -8,6 +8,7 @@ from .estimator import Estimator
 class PTrueEmpirical(Estimator):
     def __init__(self, num_samples: int = 10):
         self.num_samples = num_samples
+        print(self.num_samples)
         super().__init__(["input_texts", "greedy_texts"], "sequence")
 
     def __str__(self):

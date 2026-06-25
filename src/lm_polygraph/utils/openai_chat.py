@@ -2,6 +2,7 @@ import openai
 import os
 import time
 import logging
+import httpx
 import diskcache as dc
 
 log = logging.getLogger()
@@ -30,6 +31,11 @@ class OpenAIChat:
         api_key = os.environ.get("OPENAI_API_KEY", None)
         if api_key is not None:
             openai.api_key = api_key
+        proxy_url = os.environ.get("HTTPS_PROXY", None)
+        if proxy_url is not None:
+            self.proxy = httpx.Client(proxy=proxy_url)
+        else:
+            self.proxy = None
         self.openai_model = openai_model
 
         self.cache_path = os.path.join(cache_path, "openai_chat_cache.diskcache")
@@ -82,7 +88,7 @@ class OpenAIChat:
         for i in range(len(sleep_time_values)):
             try:
                 return openai.OpenAI(
-                    base_url=self.base_url, timeout=self.timeout
+                    base_url=self.base_url, timeout=self.timeout, http_client=self.proxy
                 ).chat.completions.create(
                     model=self.openai_model,
                     messages=messages,
@@ -97,7 +103,7 @@ class OpenAIChat:
                 time.sleep(sleep_time)
 
         return openai.OpenAI(
-            base_url=self.base_url, timeout=self.timeout
+            base_url=self.base_url, timeout=self.timeout, http_client=self.proxy
         ).chat.completions.create(
             model=self.openai_model,
             messages=messages,

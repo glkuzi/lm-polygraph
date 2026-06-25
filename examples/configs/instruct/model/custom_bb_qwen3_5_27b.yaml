@@ -1,0 +1,6 @@
+defaults:
+  - default
+
+provider: custom
+path: Qwen/Qwen3.5-27B
+type: Blackbox

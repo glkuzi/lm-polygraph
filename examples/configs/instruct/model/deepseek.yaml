@@ -1,0 +1,6 @@
+defaults:
+  - default
+
+provider: custom
+path: deepseek-v4-flash
+type: Blackbox

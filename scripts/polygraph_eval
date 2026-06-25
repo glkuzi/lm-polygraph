@@ -373,6 +373,17 @@ def get_blackbox_model(args):
         return BlackboxModel.from_huggingface(
             hf_api_token=hf_api_key, hf_model_id=args.model.path
         )
+    if provider == "custom":
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        api_url = os.environ.get("INFERENCE_API_URL")
+        if openai_api_key is None:
+            raise ValueError("OpenAI API key is not set in the environment variables.")
+        return BlackboxModel.from_custom(
+            openai_api_key=openai_api_key,
+            api_url=api_url,
+            model_path=args.model.path,
+            supports_logprobs=supports_logprobs,
+        )
     else:
         raise ValueError(f"Unsupported black-box model provider: {provider}")
 

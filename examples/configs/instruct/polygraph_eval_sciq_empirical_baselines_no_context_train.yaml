@@ -1,0 +1,22 @@
+defaults:
+  - polygraph_eval_sciq_default_instruct
+  - top1_processing_sciq
+  - default_blackbox_estimators_reduced
+  - _self_
+
+experiment_name: sciq_empirical_baselines_no_context
+
+dataset: ['sciq']
+description: ""
+few_shot_prompt: "Question: {question}\nGuess: {answer}"
+prompt: "Provide your best guess for the following question. Give ONLY the guess, no other words or explanation.\n\nFor example:\n\nGuess: <most likely guess, as short as possible; not a complete sentence, just the guess!>Question: {question}\n"
+max_new_tokens: 20
+generation_params:
+  extra_body:
+    chat_template_kwargs: 
+      enable_thinking: False
+  stop_strings:
+    - "\n"
+
+stat_calculators:
+  - auto
