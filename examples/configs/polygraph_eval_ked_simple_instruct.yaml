@@ -4,7 +4,7 @@ hydra:
 
 defaults:
   - model: gemma_3
-  - estimators: default_estimators_no_focus
+  - estimators: default_estimators_base
   - stat_calculators: default_calculators
   - _self_
 
@@ -13,7 +13,7 @@ save_path: '${hydra:run.dir}'
 instruct: true
 task: qa
 
-dataset: '/home/jovyan/gkuzmin/mental_health/kl_data/ked_hf:validation'
+dataset: './ked_hf'
 text_column: text
 label_column: label
 train_split: train
